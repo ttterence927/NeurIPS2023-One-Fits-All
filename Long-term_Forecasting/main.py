@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
+from loss.dilate_loss import dilate_loss
 
 import os
 import time
@@ -22,6 +23,9 @@ import argparse
 import random
 
 warnings.filterwarnings('ignore')
+alpha = 0.5
+gamma  = 0.01
+
 if __name__ == "__main__":
 
     fix_seed = 2021
@@ -67,7 +71,7 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size', type=int, default=16)
     parser.add_argument('--kernel_size', type=int, default=25)
 
-    parser.add_argument('--loss_func', type=str, default='mse')
+    parser.add_argument('--loss_func', type=str, default='dilate')
     parser.add_argument('--pretrain', type=int, default=1)
     parser.add_argument('--freeze', type=int, default=1)
     parser.add_argument('--model', type=str, default='model')
@@ -139,6 +143,15 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=args.patience, verbose=True)
         if args.loss_func == 'mse':
             criterion = nn.MSELoss()
+        elif args.loss_func == 'dilate':
+            class DilateLoss(nn.Module):
+                def __init__(self):
+                    super(DilateLoss, self).__init__()
+
+                def forward(self, pred, true):
+                    loss, _, _ = dilate_loss(pred, true,alpha, gamma, device)
+                    return loss
+            criterion = DilateLoss()
         elif args.loss_func == 'smape':
             class SMAPE(nn.Module):
                 def __init__(self):
