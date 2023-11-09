@@ -141,7 +141,9 @@ if __name__ == "__main__":
         model_optim = torch.optim.Adam(params, lr=args.learning_rate)
         
         early_stopping = EarlyStopping(patience=args.patience, verbose=True)
+        print('loss using: ',args.loss_func)
         if args.loss_func == 'mse':
+
             criterion = nn.MSELoss()
         elif args.loss_func == 'dilate':
             class DilateLoss(nn.Module):
@@ -159,6 +161,9 @@ if __name__ == "__main__":
                 def forward(self, pred, true):
                     return torch.mean(200 * torch.abs(pred - true) / (torch.abs(pred) + torch.abs(true) + 1e-8))
             criterion = SMAPE()
+        elif args.loss_func == 'tildeq':
+            from loss.dilate_loss import dilate_loss, tildeq_loss
+            criterion = lambda x,y: tildeq_loss(x,y, alpha = alpha, gamma = gamma)
         
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model_optim, T_max=args.tmax, eta_min=1e-8)
 

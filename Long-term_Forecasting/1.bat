@@ -34,6 +34,7 @@ for %%a in (100) do (
             --cos 1 ^
             --tmax 20 ^
             --pretrain 1 ^
-            --is_gpt 1
+            --is_gpt 1 ^
+	    --loss_func tildeq
     )
 )

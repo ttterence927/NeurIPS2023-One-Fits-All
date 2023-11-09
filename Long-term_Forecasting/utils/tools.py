@@ -272,7 +272,7 @@ def vali(model, vali_data, vali_loader, criterion, args, device, itr):
             pred = outputs.detach().cpu()
             true = batch_y.detach().cpu()
 
-            loss = criterion(pred, true)
+            loss = criterion(pred, true).cpu()
 
             total_loss.append(loss)
     total_loss = np.average(total_loss)
