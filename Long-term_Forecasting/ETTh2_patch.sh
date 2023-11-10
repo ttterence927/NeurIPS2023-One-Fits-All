@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=0
 
 seq_len=336
-model=PatchTST
+model=DLinear
 
 for percent in 100
 do
@@ -26,10 +26,10 @@ python main.py \
 	  --d_model 16 \
 	  --d_ff 128 \
 	  --dropout 0.3\
-	  --fc_dropout 0.3\
-	  --head_dropout 0\
-	  --patch_len 16\
+	  --patch_size 16\
 	  --stride 8 \
+    --c_out 7 \
+    --freq 0 \
     --percent $percent \
     --gpt_layer 6 \
     --itr 1 \
@@ -37,7 +37,8 @@ python main.py \
     --cos 1 \
     --tmax 20 \
     --pretrain 1 \
-    --is_gpt 1
+    --is_gpt 1 \
+    --loss_func mse
 
 done
 done
