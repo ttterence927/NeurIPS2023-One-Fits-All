@@ -98,7 +98,7 @@ class Dataset_TTF(Dataset):
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]
-        self.data_y = df_raw[[self.target]][border1:border2].values
+        self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
 
     def __getitem__(self, index):

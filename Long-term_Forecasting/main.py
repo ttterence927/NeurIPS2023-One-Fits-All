@@ -203,7 +203,8 @@ if __name__ == "__main__":
 
                 batch_y_reg = batch_y_reg[:, -args.pred_len:, :].to(device)
                 batch_y_cls = batch_y_cls[:, -args.pred_len:].reshape(-1).long().to(device)  # Reshape and convert to long for classification criterion
-
+                print(regression_output)
+                print(batch_y_reg)
                 loss_reg = criterion(regression_output, batch_y_reg)
                 loss_cls = criterion_classification(classification_output, batch_y_cls)
                 loss = loss_reg + loss_cls  # Combine losses, you can also weigh them differently

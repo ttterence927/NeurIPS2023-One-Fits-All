@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export CUDA_VISIBLE_DEVICES=0
-seq_len=336
+seq_len=168
 model=PatchTST
 
 for a in 100
@@ -16,12 +16,12 @@ do
             --seq_len "$seq_len" \
             --label_len 168 \
             --pred_len "$b" \
-            --batch_size 256 \
+            --batch_size 32 \
             --decay_fac 0.5 \
             --learning_rate 0.0005 \
             --train_epochs 10 \
             --d_model 168 \
-            --n_heads 8 \
+            --n_heads 4 \
             --d_ff 256 \
             --dropout 0.4 \
             --enc_in 7 \
