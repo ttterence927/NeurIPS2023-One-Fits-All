@@ -2,7 +2,7 @@
 
 export CUDA_VISIBLE_DEVICES=0
 seq_len=336
-model=DLinear
+model=PatchTST
 
 for a in 100
 do
@@ -36,6 +36,9 @@ do
             --cos 1 \
             --tmax 20 \
             --pretrain 1 \
-            --is_gpt 1
+            --is_gpt 1 \
+            --target y \
+	        --loss_func mse \
+            --num_classes 2
     done
 done

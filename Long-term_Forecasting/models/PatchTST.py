@@ -157,6 +157,7 @@ class PatchTST(nn.Module):
         self.num_heads = configs.n_heads
         self.factor = 3
         self.activation = 'gelu'
+        self.num_classes = configs.num_classes
         
         # Embedding
         self.enc_embedding = DataEmbedding_wo_time(self.patch_size, 
@@ -181,7 +182,8 @@ class PatchTST(nn.Module):
             norm_layer=torch.nn.BatchNorm1d(configs.d_model)
         )
         
-        self.proj = nn.Linear(configs.d_model * self.patch_num, configs.pred_len, bias=True)
+        self.combined_out_layer = nn.Linear(configs.d_model * self.patch_num, self.pred_len + self.num_classes, bias=True)
+
         self.cnt = 0
     
     def forward(self, x_enc, itr):
@@ -189,7 +191,7 @@ class PatchTST(nn.Module):
 
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
-        stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False)+ 1e-5).detach() 
+        stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5).detach() 
         x_enc /= stdev
 
         x_enc = rearrange(x_enc, 'b l m -> b m l')
@@ -197,22 +199,18 @@ class PatchTST(nn.Module):
         x_enc = rearrange(x_enc, 'b m n p -> (b m) n p')
 
         enc_out = self.enc_embedding(x_enc)
-
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        
-        enc_out = self.proj(enc_out.reshape(B*M, -1))
-        enc_out = rearrange(enc_out, '(b m) l -> b l m', m=M)
-        # revin
-        enc_out = enc_out[:, -self.pred_len:, :]
-        enc_out = enc_out * stdev
-        enc_out = enc_out + means
+        combined_output = self.combined_out_layer(enc_out.reshape(B * M, -1))
+        combined_output = rearrange(combined_output, '(b m) l -> b l m', m=M)
 
-        x_enc = enc_out * stdev
-        x_enc = enc_out + means
+        combined_output = combined_output * stdev
+        combined_output = combined_output + means
 
+        # Split the output into regression and classification parts
+        regression_output = combined_output[:, :, :self.pred_len]
+        classification_output = combined_output[:, :, self.pred_len:]
 
         if self.output_attention:
-            return enc_out, attns
+            return (regression_output, classification_output), attns
         else:
-            return enc_out  # [B, L, D]
-
+            return regression_output, classification_output

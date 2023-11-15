@@ -57,8 +57,8 @@ class Dataset_TTF(Dataset):
         df_raw['date'] = df_raw.index
         df_raw = df_raw[['date'] + cols ]
         # print(cols)
-        num_train = int(len(df_raw) * 0.7)
-        num_test = int(len(df_raw) * 0.15)
+        num_train = int(len(df_raw) * 0.1)
+        num_test = int(len(df_raw) * 0.8)
         num_vali = len(df_raw) - num_train - num_test
         print(num_train,num_vali ,num_test)
         border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len, 0]
@@ -68,7 +68,9 @@ class Dataset_TTF(Dataset):
 
         if self.features == 'M' or self.features == 'MS':
             cols_data = df_raw.columns[1:]
+            #print(cols_data)
             df_data = df_raw[cols_data]
+            #print(df_data)
         elif self.features == 'S':
             df_data = df_raw[[self.target]]
 
@@ -96,7 +98,7 @@ class Dataset_TTF(Dataset):
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
+        self.data_y = df_raw[[self.target]][border1:border2].values
         self.data_stamp = data_stamp
 
     def __getitem__(self, index):
@@ -109,7 +111,10 @@ class Dataset_TTF(Dataset):
         seq_y = self.data_y[r_begin:r_end]
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
-
+        #print(seq_x.shape)
+        #print(seq_y.shape)
+        #print(s_begin,s_end)
+        #print(r_begin,r_end)
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
     def __len__(self):

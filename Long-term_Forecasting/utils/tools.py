@@ -11,6 +11,15 @@ import pandas as pd
 from utils.metrics import metric
 
 plt.switch_backend('agg')
+class NoFussCrossEntropyLoss(nn.CrossEntropyLoss):
+    """
+    pytorch's CrossEntropyLoss is fussy: 1) needs Long (int64) targets only, and 2) only 1D.
+    This function satisfies these requirements
+    """
+
+    def forward(self, inp, target):
+        return F.cross_entropy(inp, target.long().squeeze(), weight=self.weight,
+                               ignore_index=self.ignore_index, reduction=self.reduction)
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
@@ -255,27 +264,42 @@ def vali(model, vali_data, vali_loader, criterion, args, device, itr):
     else:
         model.in_layer.eval()
         model.out_layer.eval()
+    total_loss_reg = []
+    total_loss_cls = []
+    criterion_classification = NoFussCrossEntropyLoss()
     with torch.no_grad():
         for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in tqdm(enumerate(vali_loader)):
             batch_x = batch_x.float().to(device)
-            batch_y = batch_y.float()
+            batch_y = batch_y.float().to(device)
 
-            batch_x_mark = batch_x_mark.float().to(device)
-            batch_y_mark = batch_y_mark.float().to(device)
+            # Split batch_y into regression and classification targets
+            # Adjust this according to your batch_y structure
+            batch_y_reg = batch_y[..., :-1]  # Regression targets
+            batch_y_cls = batch_y[..., -1]   # Classification targets, assuming last column is class label
 
-            outputs = model(batch_x, itr)
-            
-            # encoder - decoder
-            outputs = outputs[:, -args.pred_len:, :]
-            batch_y = batch_y[:, -args.pred_len:, :].to(device)
+            regression_output, classification_output = model(batch_x, i)
 
-            pred = outputs.detach().cpu()
-            true = batch_y.detach().cpu()
+            regression_output = regression_output[:, -args.pred_len:, :]
+            classification_output = classification_output[:, -args.pred_len:, :].reshape(-1, classification_output.shape[-1])
 
-            loss = criterion(pred, true).cpu()
+            batch_y_reg = batch_y_reg[:, -args.pred_len:, :].to(device)
+            batch_y_cls = batch_y_cls[:, -args.pred_len:].to(device)
 
-            total_loss.append(loss)
-    total_loss = np.average(total_loss)
+            loss_reg = criterion(regression_output, batch_y_reg).cpu()
+            loss_cls = criterion_classification(classification_output, batch_y_cls).cpu()
+
+            total_loss_reg.append(loss_reg.item())
+            total_loss_cls.append(loss_cls.item())
+
+    average_loss_reg = np.average(total_loss_reg)
+    average_loss_cls = np.average(total_loss_cls)
+    total_loss = average_loss_reg + average_loss_cls  # Combined average loss
+
+    # You might want to print or return the separate losses as well
+    print("Average Regression Loss: ", average_loss_reg)
+    print("Average Classification Loss: ", average_loss_cls)
+    print("Total Average Loss: ", total_loss)
+
     if args.model == 'PatchTST' or args.model == 'DLinear' or args.model == 'TCN':
         model.train()
     else:

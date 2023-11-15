@@ -21,10 +21,20 @@ import numpy as np
 
 import argparse
 import random
+import torch.nn.functional as F
 
 warnings.filterwarnings('ignore')
 alpha = 0.5
 gamma  = 0.01
+class NoFussCrossEntropyLoss(nn.CrossEntropyLoss):
+    """
+    pytorch's CrossEntropyLoss is fussy: 1) needs Long (int64) targets only, and 2) only 1D.
+    This function satisfies these requirements
+    """
+
+    def forward(self, inp, target):
+        return F.cross_entropy(inp, target.long().squeeze(), weight=self.weight,
+                               ignore_index=self.ignore_index, reduction=self.reduction)
 
 if __name__ == "__main__":
 
@@ -43,7 +53,7 @@ if __name__ == "__main__":
     parser.add_argument('--data', type=str, default='custom')
     parser.add_argument('--features', type=str, default='M')
     parser.add_argument('--freq', type=int, default=1)
-    parser.add_argument('--target', type=str, default='OT')
+    parser.add_argument('--target', type=str, default='y')
     parser.add_argument('--embed', type=str, default='timeF')
     parser.add_argument('--percent', type=int, default=10)
 
@@ -55,6 +65,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=0.0001)
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--num_workers', type=int, default=10)
+    parser.add_argument('--num_classes', type=int, default=2)
     parser.add_argument('--train_epochs', type=int, default=10)
     parser.add_argument('--lradj', type=str, default='type1')
     parser.add_argument('--patience', type=int, default=3)
@@ -166,6 +177,7 @@ if __name__ == "__main__":
             criterion = lambda x,y: tildeq_loss(x,y, alpha = alpha, gamma = gamma)
         
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(model_optim, T_max=args.tmax, eta_min=1e-8)
+        criterion_classification = NoFussCrossEntropyLoss()
 
         for epoch in range(args.train_epochs):
 
@@ -181,12 +193,21 @@ if __name__ == "__main__":
                 batch_y = batch_y.float().to(device)
                 batch_x_mark = batch_x_mark.float().to(device)
                 batch_y_mark = batch_y_mark.float().to(device)
-                
-                outputs = model(batch_x, ii)
+                batch_y_reg = batch_y[..., :-1]  # Regression targets
+                batch_y_cls = batch_y[..., -1]   # Classification targets, assuming last column is class label
 
-                outputs = outputs[:, -args.pred_len:, :]
-                batch_y = batch_y[:, -args.pred_len:, :].to(device)
-                loss = criterion(outputs, batch_y)
+                regression_output, classification_output = model(batch_x, iter_count)
+
+                regression_output = regression_output[:, -args.pred_len:, :]
+                classification_output = classification_output[:, -args.pred_len:, :].reshape(-1, classification_output.shape[-1])
+
+                batch_y_reg = batch_y_reg[:, -args.pred_len:, :].to(device)
+                batch_y_cls = batch_y_cls[:, -args.pred_len:].reshape(-1).long().to(device)  # Reshape and convert to long for classification criterion
+
+                loss_reg = criterion(regression_output, batch_y_reg)
+                loss_cls = criterion_classification(classification_output, batch_y_cls)
+                loss = loss_reg + loss_cls  # Combine losses, you can also weigh them differently
+
                 train_loss.append(loss.item())
 
                 if (i + 1) % 1000 == 0:
@@ -196,6 +217,7 @@ if __name__ == "__main__":
                     print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
+
                 loss.backward()
                 model_optim.step()
 

@@ -33,8 +33,10 @@ for %%a in (100) do (
             --model %model% ^
             --cos 1 ^
             --tmax 20 ^
-            --pretrain 1 ^
-            --is_gpt 1 ^
-	    --loss_func tildeq
+            --pretrain 0 ^
+            --is_gpt 0 ^
+            --target y ^
+	        --loss_func mse ^
+            --num_classes 2
     )
 )
